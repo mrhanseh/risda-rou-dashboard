@@ -1,0 +1,143 @@
+import streamlit as st
+import numpy as np
+
+st.set_page_config(page_title="RISDA RoU Financial Dashboard", layout="wide")
+
+st.title("📊 Dashboard Analisis Kewangan Korporat & Risiko Buruh RoU RISDA")
+st.caption("Simulasi Dinamik Petunjuk Kewangan Utama: NPV, IRR, ROI, dan Impak Tenaga Kerja")
+
+# Sidebar - Pasaran Global
+st.sidebar.header("⚙️ Parameter Pasaran Global")
+brent_price = st.sidebar.slider("Harga Minyak Brent (USD/Tong)", 50.0, 120.0, 78.0)
+insentif_risda = st.sidebar.slider("Insentif RISDA (sen/kg)", 0, 200, 100)
+diskaun_kilang = st.sidebar.slider("Kos Pemprosesan (sen/kg)", 50, 200, 130)
+
+# Pengiraan Harga Bersih SMR 20 (RM/kg)
+smr20_formula = 611.48 + (2.28 * brent_price)
+harga_bersih_rm = (smr20_formula + insentif_risda - diskaun_kilang) / 100
+
+st.sidebar.markdown("---")
+st.sidebar.metric(label="Harga Bersih SMR 20", value=f"RM {harga_bersih_rm:.2f}/kg")
+
+if harga_bersih_rm < 6.00:
+    st.sidebar.error("⚠️ AUTOMATIC DROP ACTIVE: Harga bawah RM6.00/kg. Sila aktifkan klausa potongan sewa 20%.")
+
+# Fungsi Pengiraan NPV, IRR, ROI Dinamik
+def kira_metrik_kewangan(untung_tahunan, kadar_sewa, keluasan, tempoh_tahun=6):
+    modal_terikat = kadar_sewa * keluasan
+    if modal_terikat <= 0 or untung_tahunan <= 0:
+        return modal_terikat, 0.0, 0.0, 0.0
+    
+    # Mengikut logik dokumen: IRR = (Untung / Modal Terikat)
+    irr = (untung_tahunan / modal_terikat) * 100
+    # ROI = IRR * Tempoh Masa (6 Tahun)
+    roi = irr * tempoh_tahun
+    
+    # Pengiraan NPV standard berasaskan 6 tahun aliran tunai
+    aliran_tunai = [-modal_terikat] + [untung_tahunan] * tempoh_tahun
+    npv = sum([cf / (1.10**t) for t, cf in enumerate(aliran_tunai)])
+    
+    return modal_terikat, npv, irr, roi
+
+# Tabs Mengikut Ladang
+tab1, tab2, tab3 = st.tabs(["🌳 Anjakan Wawasan", "🍂 Tropika Sanjung", "🌱 Sri Pelita Bumi"])
+
+# --- TAB 1: ANJAKAN WAWASAN ---
+with tab1:
+    st.header("Ladang Anjakan Wawasan (2,300 Ha Matang)")
+    col_in, col_eff = st.columns([1, 2])
+    
+    with col_in:
+        st.subheader("📋 Input Operasi & Sewa")
+        pekerja_aw = st.slider("Jumlah Penoreh (Orang)", 100, 450, 379, key="aw_p")
+        sewa_aw = st.slider("Kadar Sewaan (RM/Ha/Tahun)", 1200, 3600, 2400, key="aw_s")
+        
+        pekerja_req_aw = 418
+        kadar_kecukupan_aw = min(pekerja_aw / pekerja_req_aw, 1.0)
+        prod_efektif_aw = 1500 * kadar_kecukupan_aw
+        
+        # Kira Untung Operasi Tahunan
+        pendapatan_aw = prod_efektif_aw * harga_bersih_rm * 2300
+        kos_pengurusan_aw = (7000 + sewa_aw) * 2300
+        untung_aw = pendapatan_aw - kos_pengurusan_aw
+        
+        # Kira Metrik Kewangan
+        modal_aw, npv_aw, irr_aw, roi_aw = kira_metrik_kewangan(untung_aw, sewa_aw, 2300)
+        
+    with col_eff:
+        st.subheader("💰 Penunjuk Prestasi Kewangan (KPI)")
+        st.progress(kadar_kecukupan_aw, text=f"Kecukupan Tenaga Kerja: {kadar_kecukupan_aw*100:.1f}%")
+        
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Untung Bersih/Thn", f"RM {untung_aw:,.0f}")
+        c2.metric("NPV (@10%)", f"RM {npv_aw:,.0f}")
+        c3.metric("IRR (%)", f"{irr_aw:.2f}%")
+        c4.metric("ROI (%)", f"{roi_aw:.2f}%")
+        
+        if irr_aw < 46.67:
+            st.error("🚨 Margin Risiko Tinggi: Nilai IRR berada di bawah sasaran selamat agensi.")
+        else:
+            st.success("✅ Daya Saing Tinggi: Projek berada dalam zon pulangan komersial yang selamat.")
+
+# --- TAB 2: TROPIKA SANJUNG ---
+with tab2:
+    st.header("Ladang Tropika Sanjung (257 Ha Matang)")
+    col_in_ts, col_eff_ts = st.columns([1, 2])
+    
+    with col_in_ts:
+        st.subheader("📋 Input Operasi & Sewa")
+        pekerja_ts = st.slider("Jumlah Penoreh (Orang)", 5, 60, 5, key="ts_p")
+        sewa_ts = st.slider("Kadar Sewaan (RM/Ha/Tahun)", 1000, 2400, 1200, key="ts_s")
+        
+        pekerja_req_ts = 50
+        kadar_kecukupan_ts = min(pekerja_ts / pekerja_req_ts, 1.0)
+        prod_efektif_ts = 1200 * kadar_kecukupan_ts
+        
+        pendapatan_ts = prod_efektif_ts * harga_bersih_rm * 257
+        kos_pengurusan_ts = (7000 + sewa_ts) * 257
+        untung_ts = pendapatan_ts - kos_pengurusan_ts
+        
+        modal_ts, npv_ts, irr_ts, roi_ts = kira_metrik_kewangan(untung_ts, sewa_ts, 257)
+        
+    with col_eff_ts:
+        st.subheader("💰 Penunjuk Prestasi Kewangan (KPI)")
+        st.progress(kadar_kecukupan_ts, text=f"Kecukupan Tenaga Kerja: {kadar_kecukupan_ts*100:.1f}%")
+        
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Untung Bersih/Thn", f"RM {untung_ts:,.0f}")
+        c2.metric("NPV (@10%)", f"RM {npv_ts:,.0f}")
+        c3.metric("IRR (%)", f"{irr_ts:.2f}%")
+        c4.metric("ROI (%)", f"{roi_ts:.2f}%")
+        
+        if untung_ts < 0:
+            st.error("🚨 AMARAN: Aliran tunai negatif! Tambah bilangan pekerja segera untuk menaikkan produktiviti efektif.")
+
+# --- TAB 3: SRI PELITA BUMI ---
+with tab3:
+    st.header("Ladang Sri Pelita Bumi (344 Ha Matang)")
+    col_in_sp, col_eff_sp = st.columns([1, 2])
+    
+    with col_in_sp:
+        st.subheader("📋 Input Operasi & Sewa")
+        pekerja_sp = st.slider("Jumlah Penoreh (Orang)", 5, 60, 10, key="sp_p")
+        sewa_sp = st.slider("Kadar Sewaan (RM/Ha/Tahun)", 1200, 3000, 1800, key="sp_s")
+        
+        pekerja_req_sp = 53
+        kadar_kecukupan_sp = min(pekerja_sp / pekerja_req_sp, 1.0)
+        prod_efektif_sp = 1300 * kadar_kecukupan_sp
+        
+        pendapatan_sp = prod_efektif_sp * harga_bersih_rm * 344
+        kos_pengurusan_sp = (7000 + sewa_sp) * 344
+        untung_sp = pendapatan_sp - kos_pengurusan_sp
+        
+        modal_sp, npv_sp, irr_sp, roi_sp = kira_metrik_kewangan(untung_sp, sewa_sp, 344)
+        
+    with col_eff_sp:
+        st.subheader("💰 Penunjuk Prestasi Kewangan (KPI)")
+        st.progress(kadar_kecukupan_sp, text=f"Kecukupan Tenaga Kerja: {kadar_kecukupan_sp*100:.1f}%")
+        
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Untung Bersih/Thn", f"RM {untung_sp:,.0f}")
+        c2.metric("NPV (@10%)", f"RM {npv_sp:,.0f}")
+        c3.metric("IRR (%)", f"{irr_sp:.2f}%")
+        c4.metric("ROI (%)", f"{roi_sp:.2f}%")
