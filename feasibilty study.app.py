@@ -2,7 +2,7 @@ import streamlit as st
 
 st.set_page_config(page_title="RISDA RoU Financial Dashboard", layout="wide")
 
-st.title("📊 Dashboard Analisis Kebolehlaksanaan RoU RISDA")
+st.title("📊 Dashboard Analisis Kebolehlaksanaan RoU Strategik Antara RISDA & Syarikat Swasta - Program TGBB")
 st.caption("Simulasi Dinamik Berasaskan Produktiviti Hasil, Kos Operasi, dan Kadar Sewaan Estet")
 
 # --- SIDEBAR: PARAMETER PASARAN GLOBAL ---
